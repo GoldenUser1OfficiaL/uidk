@@ -3,29 +3,119 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Block Risk Estimator — GoGuardian (heuristic)</title>
+  <title>School Filter Likely Block Checker</title>
   <style>
-    body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial; background:#f4f6fb; color:#0b1220; display:flex; align-items:center; justify-content:center; height:100vh; margin:0; }
-    .card { width: 420px; background:white; padding:18px; border-radius:12px; box-shadow: 0 8px 30px rgba(12,20,40,0.08); }
-    h1 { font-size:18px; margin:0 0 12px 0; }
-    input[type="url"] { width:100%; padding:10px 12px; font-size:14px; border-radius:8px; border:1px solid #d6dbe9; box-sizing:border-box; }
-    button { margin-top:10px; width:100%; padding:10px; border-radius:8px; border:0; background:#2b6ef6; color:white; font-weight:600; cursor:pointer; }
-    .result { margin-top:14px; padding:12px; border-radius:8px; background:#f1f5ff; font-size:14px; min-height:52px; }
-    .low { border-left:6px solid #16a34a; }
-    .medium { border-left:6px solid #f59e0b; }
-    .high { border-left:6px solid #ef4444; }
-    small.note { color:#6b7280; display:block; margin-top:8px; }
+    body { font-family: system-ui,-apple-system,"Segoe UI",Roboto,Arial; background:#f6f8ff; margin:0; height:100vh;
+           display:flex; align-items:center; justify-content:center; }
+    .card { width:460px; background:#fff; padding:24px; border-radius:12px; box-shadow:0 8px 20px rgba(0,0,0,0.08); }
+    h1 { margin:0 0 12px; font-size:18px; color:#0f172a; }
+    input[type=url] { width:100%; padding:10px; font-size:14px; border-radius:8px; border:1px solid #d1d5db; box-sizing:border-box; }
+    button { width:100%; margin-top:10px; padding:10px; border:none; border-radius:8px; background:#2563eb; color:#fff; font-weight:600; cursor:pointer; }
+    .result { margin-top:14px; padding:12px; border-radius:8px; min-height:60px; background:#f1f5ff; font-size:14px; }
+    .auto { border-left:6px solid #ef4444; background:#fff1f2; }
+    .depends { border-left:6px solid #f59e0b; background:#fffbeb; }
+    .likely { border-left:6px solid #16a34a; background:#ecfdf5; }
+    small { display:block; margin-top:10px; color:#6b7280; font-size:12px; }
   </style>
 </head>
 <body>
   <div class="card">
-    <h1>Link block-risk estimator (heuristic)</h1>
-    <input id="urlInput" type="url" placeholder="Paste a URL (https://...)" />
-    <button id="checkBtn">Check risk</button>
-    <div id="result" class="result">Paste a link and press <strong>Check risk</strong>.</div>
-    <small class="note">This only estimates whether a site *may* be blocked by school filters (like GoGuardian). It does not attempt to access or bypass filters.</small>
+    <h1>Link Block Likelihood Checker</h1>
+    <input id="urlInput" type="url" placeholder="Paste a URL (https://…)" />
+    <button id="checkBtn">Check</button>
+    <div id="result" class="result">Paste a link and press <strong>Check</strong>.</div>
+    <small>This tool fetches the site’s meta-data and applies rules to guess if a school filter might block it. It does not attempt bypass.</small>
   </div>
 
-  <script src="script.js"></script>
+<script>
+  const btn = document.getElementById('checkBtn');
+  const urlInput = document.getElementById('urlInput');
+  const resultDiv = document.getElementById('result');
+
+  btn.addEventListener('click', () => {
+    const url = urlInput.value.trim();
+    if (!url) {
+      resultDiv.className = 'result';
+      resultDiv.textContent = 'Please paste a URL.';
+      return;
+    }
+    analyzeUrl(url);
+  });
+
+  async function analyzeUrl(url) {
+    resultDiv.textContent = 'Loading…';
+    resultDiv.className = 'result';
+
+    try {
+      // Replace endpoint & header key as per API you chose:
+      const apiKey = 'YOUR_API_KEY_HERE';
+      const endpoint = `https://api.urlmeta.org/?url=${encodeURIComponent(url)}&apikey=${apiKey}`;
+      // Example for JsonLink: https://jsonlink.io/api/extract?api_key=YOUR_API_KEY&url=…
+      const resp = await fetch(endpoint);
+      const data = await resp.json();
+
+      // Extract useful fields
+      const title = (data.title || '').toLowerCase();
+      const description = (data.description || '').toLowerCase();
+      const hostname = (new URL(url)).hostname.toLowerCase();
+
+      // Apply rules
+      let verdict = 'Depends';
+      let label = '';
+      const reasons = [];
+
+      // Rule: adult / porn → automatic block
+      if (title.match(/\b(porn|adult|sex|xxx|nsfw)\b/) || description.match(/\b(porn|adult|xxx|nsfw)\b/)) {
+        verdict = 'Automatic block';
+        label = 'Adult content';
+        reasons.push('Contains adult-related keyword in title or description.');
+      }
+      // Rule: gore / graphic violence → automatic block
+      else if (title.match(/\b(gore|blood|violent|torture|graphic)\b/) || description.match(/\b(gore|blood|violent|graphic)\b/)) {
+        verdict = 'Automatic block';
+        label = 'Graphic violence/gore';
+        reasons.push('Contains gore/violence keyword in metadata.');
+      }
+      // Rule: games → depends
+      else if (title.match(/\b(game|games|gaming|cheat|roblox|minecraft|fortnite)\b/) || description.match(/\b(game|games|gaming|cheat)\b/)) {
+        verdict = 'Depends';
+        label = 'Gaming/entertainment';
+        reasons.push('Metadata mentions gaming/cheats.');
+      }
+      // Rule: domain type
+      const tld = hostname.split('.').pop();
+      if (verdict === 'Depends') {
+        if (tld === 'edu') {
+          verdict = 'Likely not blocked';
+          label = 'Educational (.edu)';
+          reasons.push('Domain ends with .edu which is usually educational.');
+        } else if (tld === 'org') {
+          verdict = 'Depends';
+          label = 'Organization (.org)';
+          reasons.push('Domain ends with .org — could be educational or non-profit.');
+        } else if (tld === 'com') {
+          verdict = 'Depends';
+          label = 'Commercial (.com)';
+          reasons.push('Domain ends with .com — common, policy depends.');
+        }
+      }
+
+      // Present result
+      const className = verdict === 'Automatic block' ? 'auto' :
+                        verdict === 'Likely not blocked' ? 'likely' : 'depends';
+
+      resultDiv.className = `result ${className}`;
+      resultDiv.innerHTML = `<strong>Verdict:</strong> ${verdict}<br>
+                             <strong>Category:</strong> ${label}<br>
+                             <strong>Reasons:</strong><ul>${reasons.map(r=>`<li>${r}</li>`).join('')}</ul>`;
+
+    } catch (e) {
+      resultDiv.className = 'result auto';
+      resultDiv.textContent = 'Error fetching metadata or parsing URL. Please try again.';
+      console.error(e);
+    }
+  }
+</script>
+
 </body>
 </html>
