@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Block Risk Estimator — GoGuardian (heuristic)</title>
+  <style>
+    body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial; background:#f4f6fb; color:#0b1220; display:flex; align-items:center; justify-content:center; height:100vh; margin:0; }
+    .card { width: 420px; background:white; padding:18px; border-radius:12px; box-shadow: 0 8px 30px rgba(12,20,40,0.08); }
+    h1 { font-size:18px; margin:0 0 12px 0; }
+    input[type="url"] { width:100%; padding:10px 12px; font-size:14px; border-radius:8px; border:1px solid #d6dbe9; box-sizing:border-box; }
+    button { margin-top:10px; width:100%; padding:10px; border-radius:8px; border:0; background:#2b6ef6; color:white; font-weight:600; cursor:pointer; }
+    .result { margin-top:14px; padding:12px; border-radius:8px; background:#f1f5ff; font-size:14px; min-height:52px; }
+    .low { border-left:6px solid #16a34a; }
+    .medium { border-left:6px solid #f59e0b; }
+    .high { border-left:6px solid #ef4444; }
+    small.note { color:#6b7280; display:block; margin-top:8px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Link block-risk estimator (heuristic)</h1>
+    <input id="urlInput" type="url" placeholder="Paste a URL (https://...)" />
+    <button id="checkBtn">Check risk</button>
+    <div id="result" class="result">Paste a link and press <strong>Check risk</strong>.</div>
+    <small class="note">This only estimates whether a site *may* be blocked by school filters (like GoGuardian). It does not attempt to access or bypass filters.</small>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
